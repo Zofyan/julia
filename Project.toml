@@ -1,0 +1,7 @@
+[deps]
+Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
+Manifolds = "1cead3c2-87b3-11e9-0ccd-23c62b72b94e"
+QuantEcon = "fcd29c91-0bd7-5a09-975d-7ac3f643a60c"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+SymPy = "24249f21-da20-56a4-8eb1-6a02cf4ae2e6"

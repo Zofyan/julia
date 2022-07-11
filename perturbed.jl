@@ -2,9 +2,8 @@ using Nash
 using Random
 using Distributions
 using LinearAlgebra
-using Nash
+using nash
 
-DISTANCE = 0.1
 MAX_LOOPS = 1000
 
 function perturb(s, vec)

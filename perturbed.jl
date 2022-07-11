@@ -4,10 +4,8 @@ using Distributions
 using LinearAlgebra
 using Nash
 
-DISTANCE = .5 
-MAX_LOOPS = 14000
-SAMPLES = 5000
-
+DISTANCE = 0.1
+MAX_LOOPS = 1000
 
 function perturb(s, vec)
     new_s = s .- (vec .* s);
@@ -22,30 +20,30 @@ function random_distance_vector(d, n)
     vec = vec * d;
 end
 
-game = generate_game(
-        [-10 -10; 0 -20],
-        [-20 0; -1 -1]
-       );
+### Game of Chicken, Swerve VS Stay
+game9 = generate_game(
+        [0 0; 1 -1],
+        [-1 1; -20 -20]
+        );
 
-s_og = [[.5, .5], [.7, .3]];
-s = s_og
-old_best = best_reply(game, s, 1)
-new_best = old_best
-c = 0;
-sumt = 0;
-for i in 1:SAMPLES
-    global sumt, s, c, new_best, old_best;
-    s = s_og;
-    old_best = best_reply(game, s, 1)
-    new_best = old_best
-    c = 0;
-    while new_best == old_best && c < MAX_LOOPS
-        global s, c, new_best, old_best;
-        s[2] = perturb(game, s[2], random_distance_vector(DISTANCE, 2))
-        new_best = best_reply(game, s, 1)
-        c += 1
-    end
-    sumt += c;
+# Having a perfect 1 or 0 chance results in a Inaccuracy error
+s = [[.99, .01], [0.01, .99]] # Player1 Swerves and Player2 Stays
+# low distances "never" diverge while larger distances diverge quite quickly as there are 2 NE's
+
+previous_ne = last(iterate_best_reply(game, s))
+new_ne = previous_ne;
+c = 0
+while(new_ne == previous_ne && c < MAX_LOOPS)
+    global c, new_ne; # global as Julia sees loops the same as functions and will create separate, local variables.
+    s[1] = perturb(s[1], random_distance_vector(DISTANCE, 2));# disturb both players by a random vector
+    s[2] = perturb(s[2], random_distance_vector(DISTANCE, 2));
+    new_ne = last(iterate_best_reply(game, s));
+    
+    c += 1;
 end
 
-println("Diverged after an average of " * string(sumt / SAMPLES) * " perturbations");
+if(c == MAX_LOOPS)
+    println("Does not diverge(within specified limit)")
+else
+    println("Diverged after " * string(c) * " cycles")
+end

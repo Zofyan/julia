@@ -5,12 +5,12 @@ using LinearAlgebra
 using BenchmarkTools
 using Plots
 
-BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
+BenchmarkTools.DEFAULT_PARAMETERS.seconds = 3
 
 MAX_LOOPS = 2000
-MAX_STRATEGIES = 4
-MAX_PLAYERS = 6
-DISTANCE = .000001
+MAX_STRATEGIES = 10
+MAX_PLAYERS = 10
+DISTANCE = .00001
 
 function perturb(s, vec)
     new_s = s .- (vec .* s);
@@ -53,10 +53,12 @@ end
 
 results = Dict()
 
-for i in 2:1:MAX_PLAYERS
+for n in 2:2:MAX_STRATEGIES
+    println("Strat: " * string(n));
     global game, s, results;
-    results[i] = Dict();
-    for n in 2:1:MAX_STRATEGIES
+    results[n] = Dict();
+    for i in 2:1:MAX_PLAYERS
+        println("   Player: " * string(i));
         game = random_nplayers_game(Binomial(20,0.5), repeat([n], i))
 
         s = repeat([random_s(n)], i)
@@ -68,22 +70,14 @@ for i in 2:1:MAX_PLAYERS
         y = @benchmark iterate_best_reply(game, s)
         redirect_stdout(oldstd)
 
-        println("Diverging: " * string(x) * ", calcing ne: " * string(y))
-        print("turns: " * string(c) * " ")
-        results[i][n] = [minimum(x).time, minimum(y).time, c]
-        if(c == MAX_LOOPS)
-            println("Does not diverge(within specified limit) for distance " * string(DISTANCE))
-        else
-            println("Diverged after " * string(c) * " cycles for distance " * string(DISTANCE))
-        end
+        results[n][i] = [minimum(x).time, minimum(y).time, c]
     end
 end
 
 results = sort(results)
-line_types = [:dot, :dash, :solid, :dashdotdot]
-plt = plot();
+plot();
 for (k, res) in results
-    global plt;
+    plt = plot(title="Number of Strategies: " * string(k), reuse=false);
 
     res = sort(res);
     sizes = collect(keys(res))
@@ -93,11 +87,9 @@ for (k, res) in results
 
     plot!(plt,
     sizes,
-    line=(line_types[k - 1], 3),
     [time_diverge time_calc counts],
      ylim=(0, 2000),
      xlim=(2, MAX_PLAYERS),
-     labels=["Time to check divergence " * string(k) "Time to calculate NE " * string(k) "Rounds to diverge " * string(k)])
+     labels=["Time to check divergence" "Time to calculate NE" "Rounds to diverge"])
+     display(plt)
 end
-
-display(plt)

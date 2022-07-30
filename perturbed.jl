@@ -8,8 +8,8 @@ using Plots
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 3
 
 MAX_LOOPS = 2000
-MAX_STRATEGIES = 10
-MAX_PLAYERS = 10
+MAX_STRATEGIES = 6
+MAX_PLAYERS = 7
 DISTANCE = .00001
 
 function perturb(s, vec)
@@ -88,6 +88,8 @@ for (k, res) in results
     plot!(plt,
     sizes,
     [time_diverge time_calc counts],
+     xlabel="# of players",
+     ylabel="Time in ms/# of rounds",
      ylim=(0, 2000),
      xlim=(2, MAX_PLAYERS),
      labels=["Time to check divergence" "Time to calculate NE" "Rounds to diverge"])

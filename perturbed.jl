@@ -2,9 +2,15 @@ using Nash
 using Random
 using Distributions
 using LinearAlgebra
-using nash
+using BenchmarkTools
+using Plots
 
-MAX_LOOPS = 1000
+BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1
+
+MAX_LOOPS = 2000
+MAX_STRATEGIES = 4
+MAX_PLAYERS = 6
+DISTANCE = .000001
 
 function perturb(s, vec)
     new_s = s .- (vec .* s);
@@ -14,22 +20,18 @@ function perturb(s, vec)
 end
 
 function random_distance_vector(d, n)
-    vec = rand!(zeros(n));
+    vec = rand!(zeros(n)) * 2 - ones(n);
     vec = vec/norm(vec);
     vec = vec * d;
+    return vec;
 end
 
-### Game of Chicken, Swerve VS Stay
-game = generate_game(
-        [0 0; 1 -1],
-        [-1 1; -20 -20]
-        );
+function random_s(n)
+    s = ones(n) / 2;
+    return perturb(s, random_distance_vector(1, n));
+end
 
-for distance in 0:0.1:1
-    # Having a perfect 1 or 0 chance results in a Inaccuracy error
-    s = [[.99, .01], [0.01, .99]] # Player1 Swerves and Player2 Stays
-    # low distances "never" diverge while larger distances diverge quite quickly as there are 2 NE's
-
+function get_nash(distance, game, s)
     oldstd = stdout
     redirect_stdout(open("/dev/null", "w"))
 
@@ -37,19 +39,65 @@ for distance in 0:0.1:1
     new_ne = previous_ne;
     c = 0
     while(new_ne == previous_ne && c < MAX_LOOPS)
-        #global c, new_ne; # global as Julia sees loops the same as functions and will create separate, local variables.
-        s[1] = perturb(s[1], random_distance_vector(distance, 2));# disturb both players by a random vector
-        s[2] = perturb(s[2], random_distance_vector(distance, 2));
+        for i in 1:1:length(s)
+            s[i] = perturb(s[i], random_distance_vector(distance, length(s[i])));# disturb both players by a random vector
+        end
         new_ne = last(iterate_best_reply(game, s));
-        
+
         c += 1;
     end
 
     redirect_stdout(oldstd) # recover original stdout
+    return c;
+end
 
-    if(c == MAX_LOOPS)
-        println("Does not diverge(within specified limit) for distance " * string(distance))
-    else
-        println("Diverged after " * string(c) * " cycles for distance " * string(distance))
+results = Dict()
+
+for i in 2:1:MAX_PLAYERS
+    global game, s, results;
+    results[i] = Dict();
+    for n in 2:1:MAX_STRATEGIES
+        game = random_nplayers_game(Binomial(20,0.5), repeat([n], i))
+
+        s = repeat([random_s(n)], i)
+        c = get_nash(DISTANCE, game, s)
+        x = @benchmark get_nash(DISTANCE, game, s)
+
+        oldstd = stdout
+        redirect_stdout(open("/dev/null", "w"))
+        y = @benchmark iterate_best_reply(game, s)
+        redirect_stdout(oldstd)
+
+        println("Diverging: " * string(x) * ", calcing ne: " * string(y))
+        print("turns: " * string(c) * " ")
+        results[i][n] = [minimum(x).time, minimum(y).time, c]
+        if(c == MAX_LOOPS)
+            println("Does not diverge(within specified limit) for distance " * string(DISTANCE))
+        else
+            println("Diverged after " * string(c) * " cycles for distance " * string(DISTANCE))
+        end
     end
 end
+
+results = sort(results)
+line_types = [:dot, :dash, :solid, :dashdotdot]
+plt = plot();
+for (k, res) in results
+    global plt;
+
+    res = sort(res);
+    sizes = collect(keys(res))
+    time_diverge = collect(collect(getindex.(values(res), 1)) * 10^-6)
+    time_calc = collect(collect(getindex.(values(res), 2)) * 10^-6)
+    counts = collect(collect(getindex.(values(res), 3)))
+
+    plot!(plt,
+    sizes,
+    line=(line_types[k - 1], 3),
+    [time_diverge time_calc counts],
+     ylim=(0, 2000),
+     xlim=(2, MAX_PLAYERS),
+     labels=["Time to check divergence " * string(k) "Time to calculate NE " * string(k) "Rounds to diverge " * string(k)])
+end
+
+display(plt)

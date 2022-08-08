@@ -5,12 +5,12 @@ using LinearAlgebra
 using BenchmarkTools
 using Plots
 
-BenchmarkTools.DEFAULT_PARAMETERS.seconds = 3
+BenchmarkTools.DEFAULT_PARAMETERS.seconds = 15
 
 MAX_LOOPS = 2000
-MAX_STRATEGIES = 6
-MAX_PLAYERS = 7
-DISTANCE = .00001
+MAX_STRATEGIES = 2
+MAX_PLAYERS = 10
+DISTANCE = .4
 
 function perturb(s, vec)
     new_s = s .- (vec .* s);
@@ -33,7 +33,7 @@ end
 
 function get_nash(distance, game, s)
     oldstd = stdout
-    redirect_stdout(open("/dev/null", "w"))
+    redirect_stdout(open("NUL", "w"))
 
     previous_ne = last(iterate_best_reply(game, s));
     new_ne = previous_ne;
@@ -53,31 +53,28 @@ end
 
 results = Dict()
 
-for n in 2:2:MAX_STRATEGIES
-    println("Strat: " * string(n));
+for i in 2:1:MAX_PLAYERS
     global game, s, results;
     results[n] = Dict();
-    for i in 2:1:MAX_PLAYERS
-        println("   Player: " * string(i));
-        game = random_nplayers_game(Binomial(20,0.5), repeat([n], i))
+    println("   Player: " * string(i));
+    game = random_nplayers_game(Binomial(20,0.5), repeat([n], i))
 
-        s = repeat([random_s(n)], i)
-        c = get_nash(DISTANCE, game, s)
-        x = @benchmark get_nash(DISTANCE, game, s)
+    s = repeat([random_s(n)], i)
+    c = get_nash(DISTANCE, game, s)
+    x = @benchmark get_nash(DISTANCE, game, s)
 
-        oldstd = stdout
-        redirect_stdout(open("/dev/null", "w"))
-        y = @benchmark iterate_best_reply(game, s)
-        redirect_stdout(oldstd)
+    oldstd = stdout
+    redirect_stdout(open("NUL", "w"))
+    y = @benchmark iterate_best_reply(game, s)
+    redirect_stdout(oldstd)
 
-        results[n][i] = [minimum(x).time, minimum(y).time, c]
-    end
+    results[n][i] = [minimum(x).time, minimum(y).time, c]
 end
 
 results = sort(results)
 plot();
 for (k, res) in results
-    plt = plot(title="Number of Strategies: " * string(k), reuse=false);
+    plt = plot(title="Number of Options Per Player: " * string(k), reuse=false);
 
     res = sort(res);
     sizes = collect(keys(res))
@@ -90,7 +87,7 @@ for (k, res) in results
     [time_diverge time_calc counts],
      xlabel="# of players",
      ylabel="Time in ms/# of rounds",
-     ylim=(0, 2000),
+     ylim=(0, 6000),
      xlim=(2, MAX_PLAYERS),
      labels=["Time to check divergence" "Time to calculate NE" "Rounds to diverge"])
      display(plt)

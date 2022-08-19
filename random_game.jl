@@ -7,9 +7,10 @@ using PlotlyJS
 using DataFrames
 using Statistics
 
-BenchmarkTools.DEFAULT_PARAMETERS.seconds = 12
+BenchmarkTools.DEFAULT_PARAMETERS.seconds = 5
 
-MAX_LOOPS = 4000
+MAX_LOOPS = 2000
+MAX_PLAYERS = 6
 SAMPLES = 2500
 DISTANCE = .4
 
@@ -32,10 +33,10 @@ function random_distance_vector(d, n)
     return vec;
 end
 
-function get_nash(distance, game)
+function get_nash(distance, game, n)
     oldstd = stdout
     redirect_stdout(open("NUL", "w"))
-    s = repeat([random_s(2)], 2)
+    s = repeat([random_s(2)], n)
 
     previous_ne = last(iterate_best_reply(game, s));
     new_ne = previous_ne;
@@ -53,48 +54,41 @@ function get_nash(distance, game)
     return (c, s);
 end
 
-
-chicken = generate_game(
-    [0 0; 3 -1],
-    [-1 3; -20 -20]
-)
-prisoners = generate_game(
-    [1 1; 6 0],
-    [0 6; 4 4]
-)
-battle_sexes = generate_game(
-    [10 7; 2 2],
-    [0 0; 7 10]
-)
-
-games = Dict()
-games["Game of Chicken"] = chicken
-games["Prisoners Dilemma"] = prisoners
-games["Battle of the Sexes"] = battle_sexes
-
 results = Dict()
-for (k, n) in games
-    global game, s, results;
-    game = n
+diverges = Dict()
+n2 = 0;
+for n in 2:2:MAX_PLAYERS
+    global game, s, results, n2;
+    n2 = n;
 
     c_total = 0
     cs = []
-    for i in 1:1:SAMPLES
-        c, s = get_nash(DISTANCE, game)
-        append!(cs, c)
-    end
-    println("");
 
-    x = @benchmark get_nash(DISTANCE, game)
+    game = random_nplayers_game(Binomial(20,0.5), repeat([2], n))
+    x = @benchmark get_nash(DISTANCE, game, n2)
+    div = []
+    for i in 1:1:SAMPLES
+        game = random_nplayers_game(Binomial(20,0.5), repeat([2], n))
+        c, s = get_nash(DISTANCE, game, n)
+        if(c == MAX_LOOPS)
+            append!(div, 1);
+        else
+            append!(div, 0);
+            append!(cs, c)
+        end
+    end
+    println(mean(div));
+    diverges[string(n) * " players"] = mean(div);
+
 
     oldstd = stdout
     redirect_stdout(open("NUL", "w"))
     y = @benchmark iterate_best_reply(game, s)
     redirect_stdout(oldstd)
 
-    results[k] = [minimum(x).time, minimum(y).time, mean(cs), median(cs)]
+    results[string(n) * " players"] = [minimum(x).time, minimum(y).time, mean(cs), median(cs)]
 end
-
+results = sort(results)
 df = DataFrame(
     games=collect(keys(results)),
     time_diverge=getindex.(values(results), 1) * 10^-6,
@@ -108,7 +102,7 @@ plot(
 
     [bar(df, x=:games, y=y, name=String(y)) for y in [:time_diverge, :time_ne, :count_mean, :count_median]],
 
-    Layout(title="Few Games NE Divergence"),
+    Layout(title="Random Games NE Divergence"),
 
 
 )
